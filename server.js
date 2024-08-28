@@ -6,7 +6,7 @@ const fs = require('fs');
 const ytDlpDl = require('yt-dlp-dl'); // Import the yt-dlp-dl package
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.json());
