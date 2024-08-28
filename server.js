@@ -4,7 +4,7 @@ const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.json());
@@ -16,7 +16,7 @@ app.post('/download', (req, res) => {
         return res.status(400).json({ error: 'URL is required' });
     }
 
-    // Get video information
+    // Step 1: Get video information to determine the original filename
     exec(`yt-dlp -J ${url}`, (error, stdout, stderr) => {
         if (error) {
             console.error(`exec error: ${error}`);
@@ -24,7 +24,7 @@ app.post('/download', (req, res) => {
             return res.status(500).json({ error: 'Failed to retrieve video information. Please check the URL or try again.' });
         }
 
-        // Parse video info
+        // Parse the JSON output to get the original filename
         let videoInfo;
         try {
             videoInfo = JSON.parse(stdout);
@@ -33,11 +33,10 @@ app.post('/download', (req, res) => {
             return res.status(500).json({ error: 'Failed to parse video information.' });
         }
 
-        const originalTitle = videoInfo.title || 'video';
-        const safeFilename = originalTitle.replace(/[<>:"/\\|?*\x00-\x1F]/g, '') + '.mp4';
-        const filename = path.join(__dirname, safeFilename);
+        const originalTitle = videoInfo.title || 'video'; // Default title if none found
+        const safeFilename = originalTitle.replace(/[<>:"/\\|?*\x00-\x1F]/g, '') + '.mp4'; // Clean title for file system
 
-        // List formats
+        // Step 2: List available formats
         exec(`yt-dlp --list-formats ${url}`, (error, stdout, stderr) => {
             if (error) {
                 console.error(`exec error: ${error}`);
@@ -45,16 +44,28 @@ app.post('/download', (req, res) => {
                 return res.status(500).json({ error: 'Failed to list formats. Please check the URL or try again.' });
             }
 
+            // Process formats from stdout
             const formats = stdout.split('\n');
-            let formatId = 'bestvideo+bestaudio';
+            let formatId = 'bestvideo+bestaudio'; // Default format
 
+            // Find a suitable format ID
+            let formatFound = false;
             for (const format of formats) {
-                if (format.includes('720p')) {
-                    formatId = format.split(' ')[0];
+                if (format.includes('720p')) { // Example criteria for selecting format
+                    formatId = format.split(' ')[0]; // Extract format ID
+                    formatFound = true;
                     break;
                 }
             }
 
+            if (!formatFound) {
+                console.warn('Requested format not found. Using default format.');
+            }
+
+            // Generate the filename for the video
+            const filename = path.join(__dirname, safeFilename);
+
+            // Step 3: Download video using the selected format
             exec(`yt-dlp -f ${formatId} --output "${filename}" ${url}`, (err, stdout, stderr) => {
                 if (err) {
                     console.error(`exec error: ${err}`);
@@ -62,12 +73,14 @@ app.post('/download', (req, res) => {
                     return res.status(500).json({ error: 'Failed to download video. Please check the URL or format.' });
                 }
 
+                // Send the file to the client
                 res.download(filename, (downloadErr) => {
                     if (downloadErr) {
                         console.error(`Error sending file: ${downloadErr}`);
                         return res.status(500).json({ error: 'Failed to send file. Please try again.' });
                     }
 
+                    // Delete the file after sending it to the client
                     fs.unlink(filename, (unlinkErr) => {
                         if (unlinkErr) console.error(`Error deleting file: ${unlinkErr}`);
                     });
