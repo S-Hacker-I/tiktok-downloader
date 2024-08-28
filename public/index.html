@@ -7,74 +7,90 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 20px;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
         }
 
         .container {
+            text-align: center;
             background-color: #fff;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            text-align: center;
+            max-width: 500px;
+            width: 100%;
         }
 
         h1 {
-            font-size: 24px;
             margin-bottom: 20px;
         }
 
-        input[type="text"] {
-            width: 100%;
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        input {
             padding: 10px;
-            margin-bottom: 20px;
+            margin: 10px 0;
+            width: 100%;
+            max-width: 400px;
             border: 1px solid #ccc;
-            border-radius: 4px;
+            border-radius: 5px;
         }
 
         button {
             padding: 10px 20px;
+            background-color: #007bff;
+            color: #fff;
             border: none;
-            background-color: #28a745;
-            color: white;
-            font-size: 16px;
-            border-radius: 4px;
+            border-radius: 5px;
             cursor: pointer;
+            font-size: 16px;
         }
 
         button:hover {
-            background-color: #218838;
+            background-color: #0056b3;
         }
 
-        .message {
-            margin-top: 20px;
+        #message {
+            margin-top: 15px;
             font-size: 16px;
             color: #333;
+        }
+
+        #spinner {
+            display: none;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>TikTok Video Downloader</h1>
-        <input type="text" id="videoUrl" placeholder="Enter TikTok video URL">
-        <button onclick="downloadVideo()">Download</button>
-        <div class="message" id="message"></div>
+        <form id="downloadForm">
+            <label for="url">Enter TikTok Video URL:</label>
+            <input type="text" id="url" name="url" placeholder="https://www.tiktok.com/@username/video/1234567890" required>
+            <button type="submit">Download</button>
+            <div id="spinner">Downloading...</div>
+        </form>
+        <p id="message"></p>
     </div>
-
     <script>
-        async function downloadVideo() {
-            const videoUrl = document.getElementById('videoUrl').value;
-            const messageElement = document.getElementById('message');
+        document.getElementById('downloadForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
 
-            if (!videoUrl) {
-                messageElement.textContent = 'Please enter a TikTok video URL.';
-                return;
-            }
+            const url = document.getElementById('url').value;
+            const messageElement = document.getElementById('message');
+            const spinner = document.getElementById('spinner');
+
+            messageElement.textContent = '';
+            spinner.style.display = 'block';
 
             try {
                 const response = await fetch('/download', {
@@ -82,28 +98,28 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ url: videoUrl }),
+                    body: JSON.stringify({ url }),
                 });
 
                 if (response.ok) {
                     const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = 'video.mp4';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    messageElement.textContent = 'Download started...';
+                    const link = document.createElement('a');
+                    link.href = window.URL.createObjectURL(blob);
+                    link.download = 'video.mp4';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    messageElement.textContent = 'Video downloaded successfully!';
                 } else {
-                    messageElement.textContent = 'Failed to download video.';
+                    const result = await response.json();
+                    messageElement.textContent = result.error || 'Failed to download video.';
                 }
             } catch (error) {
-                console.error(error);
-                messageElement.textContent = 'An error occurred.';
+                messageElement.textContent = 'Error downloading video. Please try again.';
+            } finally {
+                spinner.style.display = 'none';
             }
-        }
+        });
     </script>
 </body>
 </html>
