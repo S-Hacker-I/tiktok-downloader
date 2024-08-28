@@ -4,7 +4,7 @@ const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.json());
@@ -49,11 +49,17 @@ app.post('/download', (req, res) => {
             let formatId = 'bestvideo+bestaudio'; // Default format
 
             // Find a suitable format ID
+            let formatFound = false;
             for (const format of formats) {
                 if (format.includes('720p')) { // Example criteria for selecting format
                     formatId = format.split(' ')[0]; // Extract format ID
+                    formatFound = true;
                     break;
                 }
+            }
+
+            if (!formatFound) {
+                console.warn('Requested format not found. Using default format.');
             }
 
             // Generate the filename for the video
